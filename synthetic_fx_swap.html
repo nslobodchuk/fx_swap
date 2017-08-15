@@ -78,11 +78,10 @@ var period_labels = {
 
 d3.tsv("interest_rates.tsv", function(error, interest_data){
     if (error) console.log(error);
-    console.log(interest_data);
 
     d3.tsv("fx_rates.tsv", function(error, fx_data){
         if (error) console.log(error);
-        
+
         fx_data.forEach(function(d){
             fx_rates[d["base_currency"]] ? null : (fx_rates[d["base_currency"]] = {});
             fx_rates[d["base_currency"]][d["quote_currency"]] = +d["value"];
