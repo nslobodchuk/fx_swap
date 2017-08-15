@@ -76,13 +76,11 @@ d3.tsv("interest_rates.tsv", function(error, interest_data){
 
     d3.tsv("fx_rates.tsv", function(error, fx_data){
         if (error) console.log(error);
-        console.log(fx_data);
         fx_data.forEach(function(d){
             if (d.quote_currency == "RUB"){
                 fx_rates[d["base_currency"]] = +d["value"];
             }
         });
-        console.log(fx_rates);
 
         update_view();
 
@@ -94,8 +92,6 @@ d3.tsv("interest_rates.tsv", function(error, interest_data){
         interest_rates[d["currency"]]? null : (interest_rates[d["currency"]] = {}); 
         interest_rates[d["currency"]][d["period"]] = +d["value"];
     });
-
-    console.log(interest_rates);
 
 });
 
