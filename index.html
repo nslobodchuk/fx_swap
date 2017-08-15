@@ -1,0 +1,128 @@
+
+<html>
+
+<head>
+    <link href="https://fonts.googleapis.com/css?family=Roboto" rel="stylesheet">
+    <link rel="stylesheet" type="text/css" href="style.css">
+</head>
+
+<body>
+    <div id="header">
+        <h3>FX Swaps</h3>
+        <h3><a href="index.html">FX Swap Calculation</a></h3>
+        <h3><a href="synthetic_fx_swap.html">Synthetic FX Swap Calculation</a></h3>
+    </div>
+    <div id="body">
+        <div id="left"></div>
+        <div id="center">
+            <div class="card">
+                <h1>FX Swap Calculation<sup>*</sup></h1>
+                <h3>Transaction 1:</h3>
+                <p>Today exchange RUB for 
+                    <select id="currency">
+                      <option value="CHF">CHF</option> 
+                      <option value="JPY" selected>JPY</option>
+                      <option value="GBP" selected>GBP</option>
+                      <option value="USD" selected>USD</option>
+                      <option value="EUR" selected>EUR</option>
+                    </select>
+                at FX rate <span class="current_fx_rate"></span></p>
+
+                <h3>Transaction 2:</h3>
+                <p>In 
+                <select id="period">
+                  <option value="overnight">1 Day</option> 
+                  <option value="1_week" selected>1 Week</option>
+                  <option value="1_month" selected>1 Month</option>
+                  <option value="2_months" selected>2 Months</option>
+                  <option value="3_months" selected>3 Months</option>
+                  <option value="6_months" selected>6 Months</option>
+                </select>
+
+                exchange <span class="currency"></span> for RUB at FX rate <span class="future_fx_rate result"></span>.
+                </p>
+
+                <h3>Summary:</h3>
+                <div id="summary">
+                <p>Current <span class="currency"></span>/RUB FX rate: <span class="current_fx_rate"></span></p>
+                <p>Future <span class="currency"></span>/RUB FX rate: <span class="future_fx_rate result"></span></p>
+                <p><span class="period"></span> MosPrime RUB interest rate: <span class="rub_interest_rate"></span></p>
+                <p><span class="period"></span> LIBOR <span class="currency"></span> interest rate: <span class="currency_interest_rate"></span></p>
+                </div>
+                <p id="explanation"><sup>*</sup> Using <a href="https://en.wikipedia.org/wiki/Foreign_exchange_swap#Pricing">interest rate parity</a>.</p>
+            </div>
+        </div>
+        <div id="right">
+        </div>
+    </div>
+
+<script src="https://d3js.org/d3.v4.min.js"></script>
+<script>
+var interest_rates = {};
+var fx_rates = {};
+var period_lengths = {"overnight": 1, "1_week": 7, "1_month": 30, "2_months": 61, "3_months": 91, "6_months": 182};
+var period_labels = {
+    "overnight": "one-day", 
+    "1_week": "1-week", 
+    "1_month": "1-month", 
+    "2_months": "2-month", 
+    "3_months": "3-month", 
+    "6_months": "6-month"
+};
+
+d3.tsv("interest_rates.tsv", function(error, interest_data){
+    if (error) console.log(error);
+    console.log(interest_data);
+
+    d3.tsv("fx_rates.tsv", function(error, fx_data){
+        if (error) console.log(error);
+        console.log(fx_data);
+        fx_data.forEach(function(d){
+            if (d.quote_currency == "RUB"){
+                fx_rates[d["base_currency"]] = +d["value"];
+            }
+        });
+        console.log(fx_rates);
+
+        update_view();
+
+        d3.select("#currency").on("change", update_view);
+        d3.select("#period").on("change", update_view);
+    });
+
+    interest_data.forEach(function(d){
+        interest_rates[d["currency"]]? null : (interest_rates[d["currency"]] = {}); 
+        interest_rates[d["currency"]][d["period"]] = +d["value"];
+    });
+
+    console.log(interest_rates);
+
+});
+
+function update_view(){
+
+    var currency = document.getElementById("currency").value;
+    var period = document.getElementById("period").value;
+    var current_fx_rate = fx_rates[currency];
+    var rub_interest_rate = interest_rates.RUB[period];
+    var currency_interest_rate = interest_rates[currency][period];
+    
+    var future_fx_rate = (1+1/365*period_lengths[period]*rub_interest_rate/100)/
+    (1+1/365*period_lengths[period]*currency_interest_rate/100)
+    *current_fx_rate;
+
+    future_fx_rate_string = (""+future_fx_rate).split(".");
+    future_fx_rate_string[1] = future_fx_rate_string[1].slice(0,4);
+    future_fx_rate_string = future_fx_rate_string.join(".");
+    d3.selectAll(".future_fx_rate").text(future_fx_rate_string);
+    d3.selectAll(".current_fx_rate").text(current_fx_rate);
+    d3.selectAll(".currency").text(currency);
+    d3.selectAll(".period").text(period_labels[period]);
+    d3.selectAll(".rub_interest_rate").text(rub_interest_rate + "%");
+    d3.selectAll(".currency_interest_rate").text(currency_interest_rate + "%");
+}
+
+
+</script>
+</body>
+</html>

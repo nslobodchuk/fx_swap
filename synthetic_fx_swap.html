@@ -1,0 +1,157 @@
+
+<html>
+<head>
+<link href="https://fonts.googleapis.com/css?family=Roboto" rel="stylesheet">
+<link rel="stylesheet" type="text/css" href="style.css">
+</head>
+
+<body>
+<div id="header">
+    <h3>FX Swaps</h3>
+    <h3><a href="index.html">FX Swap Calculation</a></h3>
+    <h3><a href="synthetic_fx_swap.html">Synthetic FX Swap Calculation</a></h3>
+</div>
+<div id="body">
+    <div id="left"></div>
+    <div id="center">
+        <div class="card">
+            <h1>Synthetic FX Swap Calculation<sup>*</sup></h1>
+            <h3>Transaction 1:</h3>
+            <p>Today exchange RUB for USD using EUR as intermediary currency. 
+            Today EUR/RUB FX rate is <span class="current_fx_rate_source_intermediary"></span>, 
+            EUR/USD FX rate is <span class="current_fx_rate_intermediary_target"></span>. 
+            The synthetic USD/RUB FX rate is <span class="current_fx_rate_source_target result"></span>.
+            </p>
+
+            <h3>Transaction 2:</h3>
+            <p>In 
+            <select id="period">
+              <option value="overnight">1 Day</option> 
+              <option value="1_week" selected>1 Week</option>
+              <option value="1_month" selected>1 Month</option>
+              <option value="2_months" selected>2 Months</option>
+              <option value="3_months" selected>3 Months</option>
+              <option value="6_months" selected>6 Months</option>
+            </select>
+
+            exchange USD for RUB using EUR as intermediary currency. 
+            Future EUR/USD FX rate will be <span class="future_fx_rate_intermediary_target result"></span>, 
+            EUR/RUB FX rate will be <span class="future_fx_rate_source_intermediary result"></span>. 
+            The synthetic USD/RUB FX rate will be <span class="future_fx_rate_source_target result"></span>.
+            </p>
+
+            <h3>Summary:</h3>
+            <div id="summary">
+            <p>Current EUR/RUB FX rate: <span class="current_fx_rate_source_intermediary"></span></p>
+            <p>Current EUR/USD FX rate: <span class="current_fx_rate_intermediary_target"></span></p>
+            <p>Current USD/RUB synthetic FX rate: <span class="current_fx_rate_source_target result"></span></p>
+            <p>Future EUR/RUB FX rate: <span class="future_fx_rate_source_intermediary result"></span></p>
+            <p>Future EUR/USD FX rate: <span class="future_fx_rate_intermediary_target result"></span></p>
+            <p>Future USD/RUB synthetic FX rate: <span class="future_fx_rate_source_target result"></span></p>
+            <p><span class="period"></span> MosPrime RUB interest rate: <span class="source_interest_rate"></span></p>
+            <p><span class="period"></span> LIBOR EUR interest rate: <span class="intermediary_interest_rate"></span></p>
+            <p><span class="period"></span> LIBOR USD interest rate: <span class="target_interest_rate"></span></p>
+            </div>
+
+            <p id="explanation"><sup>*</sup> Using <a href="https://en.wikipedia.org/wiki/Foreign_exchange_swap#Pricing">interest rate parity</a>. The information about synthetic currency pairs can be obtained <a href="https://en.wikipedia.org/wiki/Synthetic_currency_pair">via this link</a>.</p>
+        </div>
+    </div>
+
+    <div id="right">
+    </div>
+</div>
+
+
+<script src="https://d3js.org/d3.v4.min.js"></script>
+<script>
+var interest_rates = {};
+var fx_rates = {};
+var period_lengths = {"overnight": 1, "1_week": 7, "1_month": 30, "2_months": 61, "3_months": 91, "6_months": 182};
+var period_labels = {
+    "overnight": "one-day", 
+    "1_week": "1-week", 
+    "1_month": "1-month", 
+    "2_months": "2-month", 
+    "3_months": "3-month", 
+    "6_months": "6-month"
+};
+
+d3.tsv("interest_rates.tsv", function(error, interest_data){
+    if (error) console.log(error);
+    console.log(interest_data);
+
+    d3.tsv("fx_rates.tsv", function(error, fx_data){
+        if (error) console.log(error);
+        console.log(fx_data);
+        fx_data.forEach(function(d){
+            fx_rates[d["base_currency"]] ? null : (fx_rates[d["base_currency"]] = {});
+            fx_rates[d["base_currency"]][d["quote_currency"]] = +d["value"];
+        });
+        console.log(fx_rates);
+
+        update_view();
+
+        d3.select("#period").on("change", update_view);
+    });
+
+    interest_data.forEach(function(d){
+        interest_rates[d["currency"]]? null : (interest_rates[d["currency"]] = {}); 
+        interest_rates[d["currency"]][d["period"]] = +d["value"];
+    });
+
+    console.log(interest_rates);
+
+});
+
+function update_view(){
+
+    var period = document.getElementById("period").value;
+
+    var current_fx_rate_source_intermediary = fx_rates["EUR"]["RUB"];
+    var current_fx_rate_intermediary_target = fx_rates["EUR"]["USD"];
+    var current_fx_rate_source_target = current_fx_rate_source_intermediary/current_fx_rate_intermediary_target;
+
+    var source_interest_rate = interest_rates.RUB[period];
+    var intermediary_interest_rate = interest_rates.EUR[period]
+    var target_interest_rate = interest_rates.USD[period];
+
+    var future_fx_rate_source_intermediary = (1+1/365*period_lengths[period]*source_interest_rate/100)/
+    (1+1/365*period_lengths[period]*intermediary_interest_rate/100)
+    *current_fx_rate_source_intermediary;
+
+    var future_fx_rate_intermediary_target = (1+1/365*period_lengths[period]*target_interest_rate/100)/
+    (1+1/365*period_lengths[period]*intermediary_interest_rate/100)
+    *current_fx_rate_intermediary_target;
+
+    var future_fx_rate_source_target = future_fx_rate_source_intermediary/future_fx_rate_intermediary_target;
+
+    var future_fx_rate_source_intermediary_string = toString(future_fx_rate_source_intermediary);
+    var future_fx_rate_intermediary_target_string = toString(future_fx_rate_intermediary_target);
+    var future_fx_rate_source_target_string = toString(future_fx_rate_source_target);
+
+    d3.selectAll(".current_fx_rate_source_intermediary").text(current_fx_rate_source_intermediary);
+    d3.selectAll(".current_fx_rate_intermediary_target").text(current_fx_rate_intermediary_target);
+    d3.selectAll(".current_fx_rate_source_target").text(toString(current_fx_rate_source_target));
+
+    d3.selectAll(".future_fx_rate_source_intermediary").text(future_fx_rate_source_intermediary_string);
+    d3.selectAll(".future_fx_rate_intermediary_target").text(future_fx_rate_intermediary_target_string);
+    d3.selectAll(".future_fx_rate_source_target").text(future_fx_rate_source_target_string);
+
+    d3.selectAll(".source_interest_rate").text(source_interest_rate + "%");
+    d3.selectAll(".intermediary_interest_rate").text(intermediary_interest_rate + "%");
+    d3.selectAll(".target_interest_rate").text(target_interest_rate + "%");
+
+    d3.selectAll(".period").text(period_labels[period]);
+}
+
+function toString (numb){
+    var s = ("" + numb).split(".");
+    s[1] = s[1].slice(0,4);
+    s = s.join(".");
+    return s;
+}
+
+
+</script>
+</body>
+</html>
